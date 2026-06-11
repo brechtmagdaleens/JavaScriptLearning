@@ -4,3 +4,6 @@
 *.jar
 *.war
 *.ear
+
+# Claude Code internal
+.claude/
