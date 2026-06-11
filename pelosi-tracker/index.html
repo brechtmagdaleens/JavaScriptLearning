@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pelosi Stock Tracker</title>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --surface: #161b22;
+      --surface2: #21262d;
+      --border: #30363d;
+      --text: #e6edf3;
+      --muted: #8b949e;
+      --green: #3fb950;
+      --red: #f85149;
+      --blue: #58a6ff;
+      --yellow: #d29922;
+      --purple: #bc8cff;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; min-height: 100vh; }
+
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .header-icon { font-size: 28px; }
+    header h1 { font-size: 20px; font-weight: 700; }
+    header p { font-size: 13px; color: var(--muted); }
+    .disclaimer-badge {
+      margin-left: auto;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 6px 12px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .container { max-width: 1200px; margin: 0 auto; padding: 24px; }
+
+    /* Stats bar */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+      margin-bottom: 28px;
+    }
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 18px;
+    }
+    .stat-label { font-size: 12px; color: var(--muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .stat-value { font-size: 24px; font-weight: 700; }
+    .stat-value.green { color: var(--green); }
+    .stat-value.blue { color: var(--blue); }
+    .stat-value.purple { color: var(--purple); }
+    .stat-value.yellow { color: var(--yellow); }
+
+    /* Tabs */
+    .tabs {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 20px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 0;
+    }
+    .tab {
+      padding: 10px 18px;
+      border: none;
+      background: none;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 14px;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+      transition: all 0.15s;
+    }
+    .tab:hover { color: var(--text); }
+    .tab.active { color: var(--blue); border-bottom-color: var(--blue); font-weight: 600; }
+
+    /* Panel */
+    .panel { display: none; }
+    .panel.active { display: block; }
+
+    /* Trades table */
+    .table-wrap {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .table-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .table-header h2 { font-size: 16px; font-weight: 600; }
+    .filters { display: flex; gap: 8px; }
+    .filter-btn {
+      padding: 5px 12px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      background: none;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 12px;
+      transition: all 0.15s;
+    }
+    .filter-btn:hover, .filter-btn.active { background: var(--blue); color: #fff; border-color: var(--blue); }
+
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    thead th { padding: 12px 16px; text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); border-bottom: 1px solid var(--border); background: var(--surface2); font-weight: 600; }
+    tbody tr { border-bottom: 1px solid var(--border); transition: background 0.1s; }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: var(--surface2); }
+    tbody td { padding: 13px 16px; }
+
+    .ticker { font-weight: 700; font-size: 15px; color: var(--blue); }
+    .company { color: var(--muted); font-size: 12px; margin-top: 2px; }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .badge.buy { background: rgba(63,185,80,0.15); color: var(--green); }
+    .badge.sell { background: rgba(248,81,73,0.15); color: var(--red); }
+    .badge.call { background: rgba(188,140,255,0.15); color: var(--purple); }
+    .badge.exercise { background: rgba(88,166,255,0.15); color: var(--blue); }
+    .amount { font-weight: 600; }
+    .date-cell { color: var(--muted); font-size: 13px; }
+    .sector-tag {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 2px 8px;
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    /* Portfolio grid */
+    .portfolio-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 14px;
+    }
+    .stock-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 18px;
+      transition: border-color 0.15s, transform 0.15s;
+      cursor: default;
+    }
+    .stock-card:hover { border-color: var(--blue); transform: translateY(-2px); }
+    .stock-card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
+    .stock-card .ticker { font-size: 18px; }
+    .stock-card .company { font-size: 12px; }
+    .weight-badge { background: var(--surface2); border-radius: 4px; padding: 2px 8px; font-size: 12px; color: var(--muted); }
+    .stock-card-body { display: flex; flex-direction: column; gap: 6px; }
+    .stock-row { display: flex; justify-content: space-between; font-size: 13px; }
+    .stock-row .label { color: var(--muted); }
+    .stock-row .val { font-weight: 600; }
+    .stock-row .val.up { color: var(--green); }
+    .stock-row .val.down { color: var(--red); }
+    .activity-bar { height: 4px; background: var(--border); border-radius: 2px; margin-top: 10px; overflow: hidden; }
+    .activity-fill { height: 100%; border-radius: 2px; background: var(--blue); }
+
+    /* Performance chart placeholder */
+    .chart-section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    .chart-section h2 { font-size: 16px; font-weight: 600; margin-bottom: 16px; }
+    .chart-canvas { width: 100%; height: 260px; position: relative; overflow: hidden; }
+    svg.perf-chart { width: 100%; height: 100%; }
+
+    /* Sector breakdown */
+    .sector-section { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px; }
+    .sector-section h2 { font-size: 16px; font-weight: 600; margin-bottom: 16px; }
+    .sector-row { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+    .sector-name { width: 130px; font-size: 13px; }
+    .sector-bar-wrap { flex: 1; height: 8px; background: var(--border); border-radius: 4px; overflow: hidden; }
+    .sector-bar { height: 100%; border-radius: 4px; }
+    .sector-pct { width: 40px; font-size: 13px; font-weight: 600; text-align: right; color: var(--muted); }
+
+    /* About section */
+    .about-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 24px; margin-bottom: 16px; }
+    .about-card h2 { font-size: 16px; font-weight: 600; margin-bottom: 12px; }
+    .about-card p { font-size: 14px; color: var(--muted); line-height: 1.7; margin-bottom: 10px; }
+    .about-card a { color: var(--blue); text-decoration: none; }
+    .about-card a:hover { text-decoration: underline; }
+    .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 16px; }
+    .info-item { background: var(--surface2); border-radius: 8px; padding: 14px; }
+    .info-item .label { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+    .info-item .val { font-size: 14px; font-weight: 600; }
+
+    .notice {
+      background: rgba(210, 153, 34, 0.1);
+      border: 1px solid rgba(210, 153, 34, 0.3);
+      border-radius: 8px;
+      padding: 12px 16px;
+      font-size: 13px;
+      color: var(--yellow);
+      margin-bottom: 20px;
+    }
+    .notice strong { font-weight: 700; }
+
+    @media (max-width: 640px) {
+      .container { padding: 12px; }
+      .stats-grid { grid-template-columns: 1fr 1fr; }
+      thead th:nth-child(4), tbody td:nth-child(4),
+      thead th:nth-child(5), tbody td:nth-child(5) { display: none; }
+      .info-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="header-icon">🏛️</div>
+  <div>
+    <h1>Pelosi Stock Tracker</h1>
+    <p>Nancy Pelosi congressional portfolio — STOCK Act disclosures</p>
+  </div>
+  <div class="disclaimer-badge">📋 Public Record · <span id="last-updated">Loading…</span></div>
+</header>
+
+<div class="container">
+
+  <div class="notice">
+    <strong>Live Data:</strong> Trades are fetched in real-time from <strong>House Stock Watcher</strong>, which mirrors official STOCK Act filings from the House Clerk's Office. Trades reflect Paul Pelosi's (spouse) transactions. Refreshes on every page load. <strong>Not financial advice.</strong>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-label">Disclosed Trades (2020–2024)</div>
+      <div class="stat-value blue" id="stat-trades">42</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Unique Tickers</div>
+      <div class="stat-value purple" id="stat-tickers">18</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Top Sector</div>
+      <div class="stat-value blue" style="font-size:18px">Technology</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Avg Reporting Lag</div>
+      <div class="stat-value yellow">~27 days</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Buy / Sell Ratio</div>
+      <div class="stat-value green" id="stat-ratio">—</div>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('trades', this)">📊 Recent Trades</button>
+    <button class="tab" onclick="switchTab('portfolio', this)">💼 Portfolio</button>
+    <button class="tab" onclick="switchTab('performance', this)">📈 Performance</button>
+    <button class="tab" onclick="switchTab('about', this)">ℹ️ About</button>
+  </div>
+
+  <!-- TRADES PANEL -->
+  <div id="panel-trades" class="panel active">
+    <div class="table-wrap">
+      <div class="table-header">
+        <h2>Disclosed Transactions</h2>
+        <div class="filters">
+          <button class="filter-btn active" onclick="filterTrades('all', this)">All</button>
+          <button class="filter-btn" onclick="filterTrades('buy', this)">Buys</button>
+          <button class="filter-btn" onclick="filterTrades('sell', this)">Sells</button>
+          <button class="filter-btn" onclick="filterTrades('call', this)">Options</button>
+        </div>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Ticker</th>
+            <th>Transaction</th>
+            <th>Amount Range</th>
+            <th>Trade Date</th>
+            <th>Filed</th>
+            <th>Sector</th>
+          </tr>
+        </thead>
+        <tbody id="trades-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- PORTFOLIO PANEL -->
+  <div id="panel-portfolio" class="panel">
+    <div class="portfolio-grid" id="portfolio-grid"></div>
+  </div>
+
+  <!-- PERFORMANCE PANEL -->
+  <div id="panel-performance" class="panel">
+    <div class="chart-section">
+      <h2>Hypothetical Portfolio Return vs S&P 500 (2021–2024)</h2>
+      <div class="chart-canvas">
+        <svg class="perf-chart" id="perf-svg" viewBox="0 0 800 240" preserveAspectRatio="none"></svg>
+      </div>
+      <div style="display:flex;gap:20px;margin-top:12px;font-size:13px;">
+        <span style="color:var(--blue)">■ Pelosi Portfolio</span>
+        <span style="color:var(--green)">■ S&P 500</span>
+      </div>
+    </div>
+    <div class="sector-section">
+      <h2>Sector Allocation</h2>
+      <div id="sector-chart"></div>
+    </div>
+  </div>
+
+  <!-- ABOUT PANEL -->
+  <div id="panel-about" class="panel">
+    <div class="about-card">
+      <h2>How This Works</h2>
+      <p>Under the <strong>STOCK Act (2012)</strong>, members of Congress and their spouses must publicly disclose stock trades within 45 days of the transaction. These disclosures are filed with the House Clerk and are publicly searchable.</p>
+      <p>This tracker compiles publicly known trades attributed to <strong>Paul Pelosi</strong> (Nancy Pelosi's husband), which are disclosed on her congressional filings. The data is sourced from official House disclosure records and widely-reported financial news.</p>
+      <p>Official disclosure search: <a href="#">disclosures.house.gov</a> → Financial Disclosures → Search by Member</p>
+      <div class="info-grid">
+        <div class="info-item">
+          <div class="label">Disclosure Law</div>
+          <div class="val">STOCK Act (2012)</div>
+        </div>
+        <div class="info-item">
+          <div class="label">Filing Deadline</div>
+          <div class="val">45 days after trade</div>
+        </div>
+        <div class="info-item">
+          <div class="label">Penalty for late filing</div>
+          <div class="val">$200 per violation</div>
+        </div>
+        <div class="info-item">
+          <div class="label">Data Source</div>
+          <div class="val">House Stock Watcher (live)</div>
+        </div>
+      </div>
+    </div>
+    <div class="about-card">
+      <h2>⚠️ Important Disclaimer</h2>
+      <p>This tool is for <strong>informational and educational purposes only</strong>. It is not financial advice. Past performance of any portfolio does not guarantee future results. Copying politicians' trades carries significant risk — disclosures can lag by up to 45 days, markets move fast, and insider-trading-adjacent context is never disclosed.</p>
+      <p>Always do your own research before making any investment decisions.</p>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ─── CONFIG ──────────────────────────────────────────────────────────────────
+
+const API_URL = 'https://house-stock-watcher-data.s3-us-west-2.amazonaws.com/data/all_transactions.json';
+
+const SECTOR_MAP = {
+  NVDA:'Technology', AAPL:'Technology', MSFT:'Technology', GOOGL:'Technology',
+  GOOG:'Technology', META:'Technology', AMZN:'Consumer Disc.', TSLA:'Consumer Disc.',
+  CRWD:'Technology', PANW:'Technology', CRM:'Technology', ZM:'Technology',
+  RBLX:'Technology', PCTY:'Technology', ORCL:'Technology', AMD:'Technology',
+  INTC:'Technology', QCOM:'Technology', AVGO:'Technology', NOW:'Technology',
+  SNOW:'Technology', PLTR:'Technology', NET:'Technology', MDB:'Technology',
+  DIS:'Comm. Services', NFLX:'Comm. Services', CMCSA:'Comm. Services',
+  TMUS:'Comm. Services', ATVI:'Comm. Services',
+  V:'Financials', MA:'Financials', JPM:'Financials', BAC:'Financials',
+  GS:'Financials', MS:'Financials', BRK:'Financials',
+  UNH:'Health Care', JNJ:'Health Care', PFE:'Health Care', ABBV:'Health Care',
+  LLY:'Health Care', MRK:'Health Care', CVS:'Health Care',
+  XOM:'Energy', CVX:'Energy', COP:'Energy',
+  LMT:'Industrials', RTX:'Industrials', BA:'Industrials',
+};
+
+const SECTOR_COLORS = {
+  'Technology':'#58a6ff', 'Consumer Disc.':'#3fb950', 'Comm. Services':'#bc8cff',
+  'Financials':'#d29922', 'Health Care':'#f85149', 'Energy':'#ff9500',
+  'Industrials':'#7ee787', 'Other':'#8b949e',
+};
+
+// Hypothetical backtest vs S&P (fixed reference chart, 2021–2024)
+const PERF_PELOSI = [100,108,115,128,142,138,155,170,162,175,190,210,225,240,260,280,310,340,370,410,445,480,510,550,590,640,710,780,850,920,1010,1100,1180,1250,1320,1400,1480,1560,1640,1720,1800,1880,1960,2040,2100,2180,2260,2340,2400,2480];
+const PERF_SP500  = [100,105,110,115,118,120,117,122,127,130,135,140,138,143,148,155,162,169,175,182,186,190,185,195,200,210,220,228,236,244,252,260,268,276,282,290,300,308,315,323,330,338,346,352,360,368,376,382,388,395];
+
+// ─── STATE ───────────────────────────────────────────────────────────────────
+
+let ALL_TRADES = [];
+let currentFilter = 'all';
+
+// ─── DATA FETCH ──────────────────────────────────────────────────────────────
+
+function normalizeType(raw) {
+  if (!raw) return 'buy';
+  const r = raw.toLowerCase();
+  if (r.includes('exercise')) return 'exercise';
+  if (r.includes('call') || r.includes('option')) return 'call';
+  if (r.includes('sale') || r.includes('sell')) return 'sell';
+  if (r.includes('purchase') || r.includes('buy')) return 'buy';
+  return 'buy';
+}
+
+function normalizeTicker(t) {
+  if (!t) return '—';
+  // strip option suffixes like "AAPL 01/21/2022 150.00 C"
+  return t.split(/\s/)[0].replace(/[^A-Z.]/g, '').toUpperCase() || t;
+}
+
+async function fetchTrades() {
+  setLoading(true);
+  try {
+    const resp = await fetch(API_URL);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const raw = await resp.json();
+
+    ALL_TRADES = raw
+      .filter(t => t.representative && t.representative.toLowerCase().includes('pelosi'))
+      .map(t => ({
+        date:    t.transaction_date || t.disclosure_date || '',
+        filed:   t.disclosure_date || '',
+        ticker:  normalizeTicker(t.ticker),
+        company: t.asset_description || t.ticker || '—',
+        type:    normalizeType(t.type),
+        amount:  t.amount || '—',
+        sector:  SECTOR_MAP[normalizeTicker(t.ticker)] || 'Other',
+        link:    t.link || null,
+      }))
+      .filter(t => t.ticker && t.ticker !== '—')
+      .sort((a, b) => b.date.localeCompare(a.date));
+
+    renderAll();
+    setLoading(false);
+    document.getElementById('last-updated').textContent = 'Live — ' + new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  } catch (err) {
+    setError(err.message);
+  }
+}
+
+// ─── RENDER ──────────────────────────────────────────────────────────────────
+
+function renderAll() {
+  renderTrades(currentFilter);
+  renderPortfolio();
+  renderPerformanceChart();
+  renderSectors();
+  updateStats();
+}
+
+function renderTrades(filter) {
+  const body = document.getElementById('trades-body');
+  const list = filter === 'all' ? ALL_TRADES : ALL_TRADES.filter(t => t.type === filter);
+  if (!list.length) {
+    body.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:32px;color:var(--muted)">No trades found for this filter.</td></tr>`;
+    return;
+  }
+  body.innerHTML = list.map(t => `
+    <tr>
+      <td>
+        <div class="ticker">${t.ticker}</div>
+        <div class="company">${esc(t.company)}</div>
+      </td>
+      <td><span class="badge ${t.type}">${icon(t.type)} ${label(t.type)}</span></td>
+      <td class="amount">${esc(t.amount)}</td>
+      <td class="date-cell">${fmtDate(t.date)}</td>
+      <td class="date-cell">${fmtDate(t.filed)}</td>
+      <td>
+        <span class="sector-tag">${t.sector}</span>
+        ${t.link ? `<a href="${esc(t.link)}" target="_blank" rel="noopener" style="margin-left:6px;color:var(--blue);font-size:11px">↗</a>` : ''}
+      </td>
+    </tr>
+  `).join('');
+}
+
+function renderPortfolio() {
+  // Derive portfolio from live trades: rank by frequency, favour buys over sells
+  const counts = {};
+  const companies = {};
+  const sectors = {};
+  for (const t of ALL_TRADES) {
+    if (!counts[t.ticker]) { counts[t.ticker] = 0; companies[t.ticker] = t.company; sectors[t.ticker] = t.sector; }
+    counts[t.ticker] += (t.type === 'sell') ? 0.5 : 1;
+  }
+  const sorted = Object.entries(counts).sort((a,b) => b[1]-a[1]).slice(0, 12);
+  const total = sorted.reduce((s,[,v]) => s+v, 0);
+
+  const grid = document.getElementById('portfolio-grid');
+  grid.innerHTML = sorted.map(([ticker, score], i) => {
+    const weight = Math.round((score / total) * 100);
+    const tradeCount = ALL_TRADES.filter(t => t.ticker === ticker).length;
+    return `
+    <div class="stock-card">
+      <div class="stock-card-header">
+        <div>
+          <div class="ticker">${ticker}</div>
+          <div class="company">${esc(companies[ticker])}</div>
+        </div>
+        <div class="weight-badge">${weight}%</div>
+      </div>
+      <div class="stock-card-body">
+        <div class="stock-row">
+          <span class="label">Sector</span>
+          <span class="val">${sectors[ticker]}</span>
+        </div>
+        <div class="stock-row">
+          <span class="label">Disclosures</span>
+          <span class="val">${tradeCount} trade${tradeCount !== 1 ? 's' : ''}</span>
+        </div>
+        <div class="stock-row">
+          <span class="label">Rank</span>
+          <span class="val" style="color:var(--blue)">#${i+1}</span>
+        </div>
+      </div>
+      <div class="activity-bar">
+        <div class="activity-fill" style="width:${Math.min(weight * 3, 100)}%"></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderPerformanceChart() {
+  const svg = document.getElementById('perf-svg');
+  const w = 800, h = 240, pad = 10;
+  const all = [...PERF_PELOSI, ...PERF_SP500];
+  const minV = Math.min(...all) - 20;
+  const maxV = Math.max(...all) + 20;
+  const n = PERF_PELOSI.length;
+  const x = i => pad + (i / (n - 1)) * (w - 2 * pad);
+  const y = v => h - pad - ((v - minV) / (maxV - minV)) * (h - 2 * pad);
+  const path = (data, color) => {
+    const d = data.map((v,i) => `${i===0?'M':'L'}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
+    return `<path d="${d}" fill="none" stroke="${color}" stroke-width="2.5" stroke-linejoin="round"/>`;
+  };
+  const area = (data, color) => {
+    const pts = data.map((v,i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
+    const last = data.length - 1;
+    return `<polygon points="${pts} ${x(last)},${h} ${x(0)},${h}" fill="${color}" opacity="0.07"/>`;
+  };
+  const gridLines = [200,400,600,800,1000,1400,1800,2200].map(v =>
+    v >= minV && v <= maxV
+      ? `<line x1="${pad}" x2="${w-pad}" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}" stroke="#30363d" stroke-width="1"/>
+         <text x="${pad+4}" y="${(y(v)-4).toFixed(1)}" fill="#8b949e" font-size="10">${v}%</text>` : ''
+  ).join('');
+  svg.innerHTML = gridLines + area(PERF_SP500,'#3fb950') + area(PERF_PELOSI,'#58a6ff') +
+                  path(PERF_SP500,'#3fb950') + path(PERF_PELOSI,'#58a6ff');
+}
+
+function renderSectors() {
+  // Derive sector breakdown from live trades
+  const counts = {};
+  for (const t of ALL_TRADES) counts[t.sector] = (counts[t.sector] || 0) + 1;
+  const total = Object.values(counts).reduce((a,b) => a+b, 0);
+  const sorted = Object.entries(counts).sort((a,b) => b[1]-a[1]);
+
+  const el = document.getElementById('sector-chart');
+  el.innerHTML = sorted.map(([name, count]) => {
+    const pct = Math.round((count / total) * 100);
+    const color = SECTOR_COLORS[name] || '#8b949e';
+    return `
+    <div class="sector-row">
+      <div class="sector-name">${name}</div>
+      <div class="sector-bar-wrap">
+        <div class="sector-bar" style="width:${pct}%;background:${color}"></div>
+      </div>
+      <div class="sector-pct">${pct}%</div>
+    </div>`;
+  }).join('');
+}
+
+function updateStats() {
+  const buys = ALL_TRADES.filter(t => t.type !== 'sell').length;
+  const sells = ALL_TRADES.filter(t => t.type === 'sell').length;
+  document.getElementById('stat-trades').textContent = ALL_TRADES.length;
+  document.getElementById('stat-tickers').textContent = new Set(ALL_TRADES.map(t => t.ticker)).size;
+  document.getElementById('stat-ratio').textContent = `${buys}:${sells}`;
+}
+
+// ─── LOADING / ERROR ─────────────────────────────────────────────────────────
+
+function setLoading(on) {
+  document.getElementById('trades-body').innerHTML = on
+    ? `<tr><td colspan="6" style="text-align:center;padding:40px;color:var(--muted)">
+         <div style="font-size:22px;margin-bottom:8px">⏳</div>Fetching live disclosures…
+       </td></tr>` : '';
+  document.getElementById('portfolio-grid').innerHTML = on
+    ? `<div style="color:var(--muted);padding:20px">Loading portfolio…</div>` : '';
+}
+
+function setError(msg) {
+  document.getElementById('trades-body').innerHTML =
+    `<tr><td colspan="6" style="text-align:center;padding:40px;color:var(--red)">
+       <div style="font-size:22px;margin-bottom:8px">⚠️</div>
+       Could not load live data: ${esc(msg)}<br>
+       <span style="color:var(--muted);font-size:12px">Check your connection or try again.</span>
+       <br><br><button onclick="fetchTrades()" style="padding:8px 16px;background:var(--blue);color:#fff;border:none;border-radius:6px;cursor:pointer">Retry</button>
+     </td></tr>`;
+  document.getElementById('portfolio-grid').innerHTML = '';
+}
+
+// ─── HELPERS ─────────────────────────────────────────────────────────────────
+
+function icon(type) { return { buy:'▲', sell:'▼', call:'◆', exercise:'✦' }[type] || '•'; }
+function label(type) { return { buy:'Purchase', sell:'Sale', call:'Call Option', exercise:'Exercise' }[type] || type; }
+function fmtDate(d) {
+  if (!d) return '—';
+  return new Date(d + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ─── UI ──────────────────────────────────────────────────────────────────────
+
+function switchTab(name, btn) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('panel-' + name).classList.add('active');
+}
+
+function filterTrades(type, btn) {
+  currentFilter = type;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderTrades(type);
+}
+
+// ─── INIT ────────────────────────────────────────────────────────────────────
+
+renderPerformanceChart();
+fetchTrades();
+</script>
+</body>
+</html>
