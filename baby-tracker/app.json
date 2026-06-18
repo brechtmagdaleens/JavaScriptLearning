@@ -1,0 +1,37 @@
+{
+  "expo": {
+    "name": "Baby Tracker",
+    "slug": "baby-tracker",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#FFF0F5"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.babytracker.app",
+      "infoPlist": {
+        "NSUserNotificationUsageDescription": "We use notifications to remind you when it's time to feed your baby."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#FFF0F5"
+      }
+    },
+    "plugins": [
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#E91E8C"
+        }
+      ]
+    ]
+  }
+}
